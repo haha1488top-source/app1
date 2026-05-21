@@ -20,14 +20,14 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
+            height: 100dvh; /* Виправлено для мобільних браузерів */
             overflow: hidden;
         }
 
         #terminal-container {
             width: 100%;
             max-width: 430px;
-            height: 100vh;
+            height: 100dvh; /* Виправлено для мобільних браузерів */
             max-height: 932px;
             background-color: #141816;
             border: 3px solid #252c28;
@@ -39,7 +39,8 @@
         }
 
         #radar-zone {
-            height: 50%;
+            flex: 1; /* Займає весь доступний простір, що залишився */
+            min-height: 0; /* Дозволяє коректно стискатися на низьких екранах */
             position: relative;
             border-bottom: 2px solid #222a25;
             background-color: #070a08;
@@ -118,14 +119,14 @@
         }
 
         #telemetry-zone {
-            height: 18%;
+            flex-shrink: 0; /* Забороняє стискати вміст телеметрії */
             background-color: #101412;
             border-bottom: 2px solid #222a25;
             padding: 12px 16px;
             font-size: 12px;
             display: flex;
             flex-direction: column;
-            justify-content: space-between;
+            gap: 6px; /* Забезпечує гарні відступи між рядками */
             letter-spacing: 0.5px;
             box-shadow: inset 0 0 15px rgba(0,0,0,0.5);
         }
@@ -182,11 +183,11 @@
         }
 
         #control-zone {
-            height: 32%;
+            flex-shrink: 0; /* Забороняє стискати нижню панель */
             padding: 12px;
             display: flex;
             flex-direction: column;
-            justify-content: space-between;
+            gap: 10px; /* Фіксована відстань між елементами управління */
             background: linear-gradient(180deg, #161c19 0%, #111513 100%);
             border-top: 1px solid #2d3831;
         }
@@ -478,7 +479,7 @@
     const radarZone = document.getElementById('radar-zone');
     
     let audioCtx = null;
-    let masterSirenGain = null; // Глобальний регулятор гучності сирени
+    let masterSirenGain = null;
 
     const PATH_SHAHED = new Path2D();
     PATH_SHAHED.moveTo(0, -6); PATH_SHAHED.lineTo(6, 4); PATH_SHAHED.lineTo(2, 4); 
@@ -505,7 +506,6 @@
         }
     }
 
-    // Слухач тумблера гучності
     document.getElementById('siren-volume').addEventListener('input', (e) => {
         if (masterSirenGain) {
             masterSirenGain.gain.setValueAtTime(e.target.value / 100, audioCtx.currentTime);
@@ -571,7 +571,6 @@
         osc.connect(filter);
         filter.connect(gainNode);
         
-        // Підключаємо сирену до тактичного регулятора гучності
         gainNode.connect(masterSirenGain); 
         
         let now = audioCtx.currentTime;
