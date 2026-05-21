@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>українське ППО Операція PATRIOT</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+            font-family: 'Share Tech Mono', 'Courier New', Courier, monospace;
+        }
+
+        body {
+            background-color: #0f1100;
+            color: #33ff33;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #terminal-container {
+            width: 100%;
+            max-width: 430px;
+            height: 100vh;
+            max-height: 932px;
+            background-color: #141816;
+            border: 3px solid #252c28;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            touch-action: none;
+            box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.8), 0 10px 40px rgba(0,0,0,0.5);
+        }
+
+        #radar-zone {
+            height: 50%;
+            position: relative;
+            border-bottom: 2px solid #222a25;
+            background-color: #070a08;
+            box-shadow: inset 0 -10px 20px rgba(0,0,0,0.6);
+            cursor: grab;
+        }
+        #radar-zone:active { cursor: grabbing; }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        #status-bar {
+            position: absolute;
+            top: 42px;
+            left: 14px;
+            right: 14px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            font-weight: bold;
+            letter-spacing: 1px;
+            z-index: 10;
+            color: #4dfd4d;
+            text-shadow: 0 0 4px rgba(77, 253, 77, 0.6);
+            pointer-events: none;
+        }
+
+        #air-raid-banner {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            color: #ffffff;
+            text-align: center;
+            padding: 8px 0;
+            font-size: 13px;
+            font-weight: bold;
+            z-index: 20;
+            letter-spacing: 2px;
+            display: none;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.6);
+            animation: pulse-alert 1s infinite alternate;
+            pointer-events: none;
+        }
+
+        @keyframes pulse-alert {
+            0% { opacity: 0.85; }
+            100% { opacity: 1; filter: brightness(1.2); }
+        }
+
+        #monitoring-alert {
+            position: absolute;
+            top: 70px;
+            left: 12px;
+            right: 12px;
+            background: rgba(10, 14, 12, 0.95);
+            border: 1px solid #336633;
+            border-left: 4px solid #ffaa00;
+            padding: 8px;
+            font-size: 11px;
+            color: #ffffff;
+            z-index: 10;
+            display: none;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            animation: slide-down 0.15s ease-out;
+            pointer-events: none;
+        }
+
+        #monitoring-alert.red-alert {
+            border-left-color: #ff3333;
+            background: rgba(25, 10, 10, 0.95);
+            border-color: #ff3333;
+        }
+
+        #telemetry-zone {
+            height: 18%;
+            background-color: #101412;
+            border-bottom: 2px solid #222a25;
+            padding: 12px 16px;
+            font-size: 12px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            letter-spacing: 0.5px;
+            box-shadow: inset 0 0 15px rgba(0,0,0,0.5);
+        }
+
+        .telemetry-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 20px;
+        }
+        
+        .tel-label {
+            color: #c4793d;
+            font-weight: bold;
+        }
+
+        .tel-val {
+            font-weight: bold;
+            color: #a0a5a2;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-weight: bold;
+        }
+
+        /* ТАКТИЧНИЙ ПОВЗУНОК ГУЧНОСТІ */
+        #siren-volume {
+            -webkit-appearance: none;
+            width: 110px;
+            height: 6px;
+            background: #1a221d;
+            border: 1px solid #2d3831;
+            border-radius: 3px;
+            outline: none;
+        }
+
+        #siren-volume::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            background: #4dfd4d;
+            border: 1px solid #ffffff;
+            border-radius: 2px;
+            cursor: pointer;
+            box-shadow: 0 0 6px rgba(77, 253, 77, 0.6);
+            transition: background 0.1s;
+        }
+
+        #siren-volume::-webkit-slider-thumb:active {
+            background: #ffffff;
+        }
+
+        #control-zone {
+            height: 32%;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            background: linear-gradient(180deg, #161c19 0%, #111513 100%);
+            border-top: 1px solid #2d3831;
+        }
+
+        #target-ribbon {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            padding-bottom: 4px;
+            height: 48px;
+        }
+        #target-ribbon::-webkit-scrollbar { display: none; }
+
+        .target-card {
+            flex: 0 0 115px;
+            height: 40px;
+            border: 1px solid #2d3831;
+            background-color: #0b0e0c;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: all 0.1s ease;
+        }
+
+        .target-card.selected {
+            border-color: #33ff33;
+            background-color: #121f17;
+            box-shadow: 0 0 10px rgba(51, 255, 51, 0.25);
+        }
+
+        .target-card.danger {
+            border-color: #ff3333;
+        }
+
+        #weapon-selector {
+            display: flex;
+            gap: 4px;
+        }
+
+        .weapon-btn {
+            flex: 1;
+            min-width: 0;
+            height: 85px;
+            background: #181e1b;
+            border: 2px solid #2d3732;
+            border-radius: 6px;
+            color: #8fa096;
+            font-size: 8.5px;
+            font-weight: bold;
+            text-align: center;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            padding: 6px 1px;
+            box-shadow: inset 0 1px 3px rgba(255,255,255,0.05), 0 4px 6px rgba(0,0,0,0.3);
+            position: relative;
+        }
+
+        .weapon-btn svg {
+            width: 100%;
+            height: 34px;
+            fill: none;
+            stroke: #5d6e64;
+            stroke-width: 1.2;
+        }
+
+        .weapon-btn.active {
+            border-color: #4dfd4d;
+            color: #4dfd4d;
+            background: #14241b;
+            box-shadow: 0 0 12px rgba(77, 253, 77, 0.25), inset 0 0 8px rgba(77, 253, 77, 0.1);
+        }
+
+        .weapon-btn.active svg {
+            stroke: #4dfd4d;
+            filter: drop-shadow(0 0 2px rgba(77, 253, 77, 0.5));
+        }
+
+        .wpn-meta {
+            font-size: 8px;
+            color: #55665c;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 2px;
+        }
+
+        #action-btn {
+            width: 100%;
+            height: 46px;
+            background: #1b221e;
+            border: 1px solid #2e3b33;
+            border-radius: 4px;
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #action-text {
+            color: #4dfd4d;
+            font-size: 14px;
+            font-weight: bold;
+            letter-spacing: 1px;
+            z-index: 2;
+        }
+
+        .hazard-stripe {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 35px;
+            background: repeating-linear-gradient(-45deg, #94761e, #94761e 6px, #151a17 6px, #151a17 12px);
+            z-index: 1;
+        }
+        .hazard-stripe.hazard-left { left: 0; border-right: 1px solid #2e3b33; }
+        .hazard-stripe.hazard-right { right: 0; border-left: 1px solid #2e3b33; }
+
+        #action-btn.ready-to-fire { background: #3a1414; border-color: #ff3333; }
+        #action-btn.ready-to-fire #action-text { color: #ff3333; }
+
+        #lock-progress-bar {
+            position: absolute;
+            left: 35px;
+            right: 35px;
+            bottom: 0;
+            height: 3px;
+            background-color: #4dfd4d;
+            width: 0%;
+        }
+        #action-btn.ready-to-fire #lock-progress-bar { background-color: #ff3333; width: 100% !important; }
+
+        .flash-red { animation: flash 0.2s ease-out; }
+        @keyframes flash { 0% { background-color: rgba(255, 0, 0, 0.2); } 100% { background-color: transparent; } }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<div id="terminal-container">
+    <div id="radar-zone">
+        <div id="air-raid-banner">🚨 ПОВІТРЯНА ТРИВОГА! 🚨</div>
+        
+        <div id="status-bar">
+            <span id="ui-budget">СИС_БЮДЖЕТ: $2500</span>
+            <span id="ui-score">ЗБИТО: 0</span>
+        </div>
+        <div id="monitoring-alert">
+            <b id="alert-channel">📡 РЛС_СПОСТЕРЕЖЕННЯ:</b> <span id="alert-text">СКАНУВАННЯ...</span>
+        </div>
+        <canvas id="radarCanvas"></canvas>
+    </div>
+
+    <div id="telemetry-zone">
+        <div class="telemetry-row">
+            <span class="tel-label">ГУЧНІСТЬ СИРЕНИ:</span> 
+            <input type="range" id="siren-volume" min="0" max="100" value="100">
+        </div>
+        <div class="telemetry-row">
+            <span class="tel-label">ЦІЛЬ НА СУПРОВОДІ:</span> 
+            <span id="tel-type" class="status-badge" style="color: #ff3333;">НЕМАЄ ЗВ'ЯЗКУ</span>
+        </div>
+        <div class="telemetry-row">
+            <span class="tel-label">ВЕКТОР / АЗИМУТ:</span> 
+            <span id="tel-vector" class="tel-val">-- / --</span>
+        </div>
+        <div class="telemetry-row">
+            <span class="tel-label">ВИСОТА / ШВ / ЧАС:</span> 
+            <span id="tel-eta" class="tel-val">-- | -- | --</span>
+        </div>
+        <div class="telemetry-row">
+            <span class="tel-label">СТАТУС_СУО:</span> 
+            <span id="tel-status" class="status-badge" style="color: #33ff33;">РЕЖИМ_ОЧІКУВАННЯ</span>
+        </div>
+    </div>
+
+    <div id="control-zone">
+        <div id="target-ribbon"></div>
+        <div id="weapon-selector">
+            <div class="weapon-btn active" onclick="selectWeapon('MG')" id="wpn-MG">
+                <div>МВГ СТРІЛЕЦЬ</div>
+                <svg viewBox="0 0 80 40"><path d="M10 28 h45 l15 -6 v-8 h-10 l-8 -6 h-18 v6 h-24 z" /><circle cx="22" cy="28" r="5" fill="none"/><circle cx="55" cy="28" r="5" fill="none"/></svg>
+                <div class="wpn-meta"><span>МВГ ●</span><span>($0)</span></div>
+            </div>
+            <div class="weapon-btn" onclick="selectWeapon('SHORT_SAM')" id="wpn-SHORT_SAM">
+                <div>СТРІЛА-10</div>
+                <svg viewBox="0 0 80 40"><path d="M12 26 h56 l-4 -10 h-48 z" /><rect x="25" y="10" width="26" height="6" /></svg>
+                <div class="wpn-meta"><span>МД ●</span><span>($100)</span></div>
+            </div>
+            <div class="weapon-btn" onclick="selectWeapon('MED_SAM')" id="wpn-MED_SAM">
+                <div>NASAMS III</div>
+                <svg viewBox="0 0 80 40"><rect x="20" y="24" width="40" height="6" /><rect x="22" y="10" width="32" height="14" transform="rotate(-15 38 17)" /></svg>
+                <div class="wpn-meta"><span>СД ●</span><span>($500)</span></div>
+            </div>
+            <div class="weapon-btn" onclick="selectWeapon('PATRIOT')" id="wpn-PATRIOT">
+                <div>MIM-104 PATRIOT</div>
+                <svg viewBox="0 0 80 40"><rect x="15" y="24" width="50" height="6" /><rect x="20" y="10" width="38" height="12" transform="rotate(-20 35 15)" /><circle cx="30" cy="27" r="4" /><circle cx="50" cy="27" r="4" /></svg>
+                <div class="wpn-meta"><span>ВД ●</span><span>($1200)</span></div>
+            </div>
+        </div>
+        <div id="action-btn">
+            <div class="hazard-stripe hazard-left"></div>
+            <span id="action-text">ОБЕРІТЬ ЦІЛЬ ЗІ СТРІЧКИ</span>
+            <div class="hazard-stripe hazard-right"></div>
+            <div id="lock-progress-bar"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const WEAPONS = {
+        MG: { name: 'МВГ Стрілець', cost: 0, lockTime: 300, hitChance: 0.70, color: '#33ff33', r: 160, pkStr: "0.70" },
+        SHORT_SAM: { name: 'ЗРК Стріла-10', cost: 100, lockTime: 700, hitChance: 0.85, color: '#ffaa00', r: 280, pkStr: "0.85" },
+        MED_SAM: { name: 'ЗРК NASAMS III', cost: 500, lockTime: 1200, hitChance: 0.95, color: '#ff3333', r: 420, pkStr: "0.95" },
+        PATRIOT: { name: 'ЗРК MIM-104 Patriot', cost: 1200, lockTime: 900, hitChance: 0.99, color: '#33ccff', r: 650, pkStr: "0.99" }
+    };
+
+    const THREAT_TYPES = {
+        SHAHED: { name: 'БПЛА Shahed-136', speed: 1/45, reward: 150, color: '#ffaa00', size: 1.0, code: 'БПЛА' },
+        CRUISE: { name: 'КР Х-101', speed: 1/28, reward: 400, color: '#ff4444', size: 1.2, code: 'Х-101' },
+        BALLISTIC: { name: 'БР Іскандер-М', speed: 1/14, reward: 1000, color: '#ff0044', size: 1.4, code: 'ІСК-М' }
+    };
+
+    const WORLD_SCALE = 2.8;
+    
+    const UA_BORDER = [
+        {x: 0.18, y: 0.24}, {x: 0.28, y: 0.25}, {x: 0.35, y: 0.29}, 
+        {x: 0.42, y: 0.28}, {x: 0.50, y: 0.21}, {x: 0.56, y: 0.23}, 
+        {x: 0.68, y: 0.20}, {x: 0.74, y: 0.25}, {x: 0.84, y: 0.31}, 
+        {x: 0.94, y: 0.34}, {x: 0.98, y: 0.44}, {x: 0.95, y: 0.53}, 
+        {x: 0.88, y: 0.58}, {x: 0.84, y: 0.61}, 
+        {x: 0.76, y: 0.66}, {x: 0.79, y: 0.73}, {x: 0.85, y: 0.75}, 
+        {x: 0.78, y: 0.87}, {x: 0.73, y: 0.85}, {x: 0.72, y: 0.72}, 
+        {x: 0.64, y: 0.65}, {x: 0.56, y: 0.66}, {x: 0.48, y: 0.70}, 
+        {x: 0.42, y: 0.79}, {x: 0.37, y: 0.75}, {x: 0.40, y: 0.64}, 
+        {x: 0.28, y: 0.58}, {x: 0.21, y: 0.56}, {x: 0.17, y: 0.58}, 
+        {x: 0.07, y: 0.54}, {x: 0.06, y: 0.45}, {x: 0.12, y: 0.38}
+    ];
+
+    let CITIES = [
+        { name: "КИЇВ", x: 0.48, y: 0.32, active: true, hp: 100, occupied: false },
+        { name: "ЛЬВІВ", x: 0.16, y: 0.40, active: true, hp: 100, occupied: false },
+        { name: "ХАРКІВ", x: 0.82, y: 0.35, active: true, hp: 100, occupied: false },
+        { name: "ДНІПРО", x: 0.74, y: 0.48, active: true, hp: 100, occupied: false },
+        { name: "ОДЕСА", x: 0.50, y: 0.65, active: true, hp: 100, occupied: false },
+        { name: "ЗАПОРІЖЖЯ", x: 0.73, y: 0.55, active: true, hp: 100, occupied: false },
+        { name: "ХЕРСОН", x: 0.63, y: 0.62, active: true, hp: 100, occupied: false },
+        { name: "МИКОЛАЇВ", x: 0.57, y: 0.61, active: true, hp: 100, occupied: false },
+        { name: "ПОЛТАВА", x: 0.71, y: 0.38, active: true, hp: 100, occupied: false },
+        { name: "СУМИ", x: 0.73, y: 0.27, active: true, hp: 100, occupied: false },
+        { name: "ЧЕРНІГІВ", x: 0.51, y: 0.24, active: true, hp: 100, occupied: false },
+        { name: "ЖИТОМИР", x: 0.39, y: 0.33, active: true, hp: 100, occupied: false },
+        { name: "ЧЕРКАСИ", x: 0.55, y: 0.42, active: true, hp: 100, occupied: false },
+        { name: "ВІННИЦЯ", x: 0.40, y: 0.46, active: true, hp: 100, occupied: false },
+        { name: "КРОПИВНИЦЬКИЙ", x: 0.58, y: 0.49, active: true, hp: 100, occupied: false },
+        { name: "ХМЕЛЬНИЦЬКИЙ", x: 0.29, y: 0.42, active: true, hp: 100, occupied: false },
+        { name: "РІВНЕ", x: 0.28, y: 0.32, active: true, hp: 100, occupied: false },
+        { name: "ЛУЦЬК", x: 0.21, y: 0.30, active: true, hp: 100, occupied: false },
+        { name: "ТЕРНОПІЛЬ", x: 0.23, y: 0.43, active: true, hp: 100, occupied: false },
+        { name: "ІВАНО-ФРАНКІВСЬК", x: 0.19, y: 0.49, active: true, hp: 100, occupied: false },
+        { name: "ЧЕРНІВЦІ", x: 0.24, y: 0.54, active: true, hp: 100, occupied: false },
+        { name: "УЖГОРОД", x: 0.09, y: 0.48, active: true, hp: 100, occupied: false },
+        
+        { name: "КРИМ (СІМФЕРОПОЛЬ)", x: 0.76, y: 0.78, active: false, hp: 0, occupied: true },
+        { name: "ЛУГАНСЬК", x: 0.94, y: 0.46, active: false, hp: 0, occupied: true },
+        { name: "ДОНЕЦЬК", x: 0.86, y: 0.52, active: false, hp: 0, occupied: true }
+    ];
+
+    let state = {
+        budget: 2500, score: 0, threats: [], missiles: [], particles: [],
+        selectedThreatId: null, selectedWeapon: 'MG', lockProgress: 0, isLocking: false, isLocked: false,
+        camera: { x: 0, y: 0 }, worldSize: { width: 0, height: 0 }, pan: { isDragging: false, lastX: 0, lastY: 0 },
+        basePosition: { x: 0, y: 0 }, sweepAngle: Math.PI, sweepSpeed: 0.4,
+        lastEventTime: 0, nextEventType: 'MIXED_ATTACK', eventStage: 0,
+        lastFrameTime: performance.now(),
+        airRaidActive: false 
+    };
+
+    const canvas = document.getElementById('radarCanvas');
+    const ctx = canvas.getContext('2d');
+    const radarZone = document.getElementById('radar-zone');
+    
+    let audioCtx = null;
+    let masterSirenGain = null; // Глобальний регулятор гучності сирени
+
+    const PATH_SHAHED = new Path2D();
+    PATH_SHAHED.moveTo(0, -6); PATH_SHAHED.lineTo(6, 4); PATH_SHAHED.lineTo(2, 4); 
+    PATH_SHAHED.lineTo(0, 6); PATH_SHAHED.lineTo(-2, 4); PATH_SHAHED.lineTo(-6, 4); PATH_SHAHED.closePath();
+
+    const PATH_CRUISE = new Path2D();
+    PATH_CRUISE.moveTo(-10, -1); PATH_CRUISE.lineTo(0, -1.5); PATH_CRUISE.lineTo(3, 0); PATH_CRUISE.lineTo(0, 1.5); PATH_CRUISE.lineTo(-10, 1); PATH_CRUISE.lineTo(-10, -1);
+    PATH_CRUISE.moveTo(-3, -1); PATH_CRUISE.lineTo(-2, -5); PATH_CRUISE.lineTo(-4, -5);
+    PATH_CRUISE.moveTo(-3, 1); PATH_CRUISE.lineTo(-2, 5); PATH_CRUISE.lineTo(-4, 5);
+    PATH_CRUISE.moveTo(-10, -1); PATH_CRUISE.lineTo(-11, -2);
+    PATH_CRUISE.moveTo(-10, 1); PATH_CRUISE.lineTo(-11, 2);
+
+    const PATH_BALLISTIC = new Path2D();
+    PATH_BALLISTIC.moveTo(0, -12); PATH_BALLISTIC.lineTo(2, -9); PATH_BALLISTIC.lineTo(2, 6); PATH_BALLISTIC.lineTo(-2, 6); PATH_BALLISTIC.lineTo(-2, -9); PATH_BALLISTIC.closePath();
+    PATH_BALLISTIC.moveTo(2, 4); PATH_BALLISTIC.lineTo(4, 5); PATH_BALLISTIC.lineTo(4, 6);
+    PATH_BALLISTIC.moveTo(-2, 4); PATH_BALLISTIC.lineTo(-4, 5); PATH_BALLISTIC.lineTo(-4, 6);
+
+    function initAudio() { 
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            masterSirenGain = audioCtx.createGain();
+            masterSirenGain.gain.value = document.getElementById('siren-volume').value / 100;
+            masterSirenGain.connect(audioCtx.destination);
+        }
+    }
+
+    // Слухач тумблера гучності
+    document.getElementById('siren-volume').addEventListener('input', (e) => {
+        if (masterSirenGain) {
+            masterSirenGain.gain.setValueAtTime(e.target.value / 100, audioCtx.currentTime);
+        }
+    });
+
+    function resizeCanvas() {
+        canvas.width = radarZone.clientWidth; canvas.height = radarZone.clientHeight;
+        state.worldSize.width = canvas.width * WORLD_SCALE;
+        state.worldSize.height = canvas.height * WORLD_SCALE;
+        state.basePosition.x = state.worldSize.width / 2;
+        state.basePosition.y = state.worldSize.height / 2;
+        state.camera.x = state.basePosition.x - canvas.width / 2;
+        state.camera.y = state.basePosition.y - canvas.height / 2;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    function handlePointerDown(e) {
+        initAudio();
+        state.pan.isDragging = true;
+        state.pan.lastX = e.clientX || e.touches[0].clientX;
+        state.pan.lastY = e.clientY || e.touches[0].clientY;
+    }
+    function handlePointerMove(e) {
+        if (!state.pan.isDragging) return;
+        const currentX = e.clientX || e.touches[0].clientX;
+        const currentY = e.clientY || e.touches[0].clientY;
+        state.camera.x -= (currentX - state.pan.lastX);
+        state.camera.y -= (currentY - state.pan.lastY);
+        state.camera.x = Math.max(0, Math.min(state.camera.x, state.worldSize.width - canvas.width));
+        state.camera.y = Math.max(0, Math.min(state.camera.y, state.worldSize.height - canvas.height));
+        state.pan.lastX = currentX; state.pan.lastY = currentY;
+    }
+    function handlePointerUp() { state.pan.isDragging = false; }
+
+    radarZone.addEventListener('mousedown', handlePointerDown);
+    window.addEventListener('mousemove', handlePointerMove);
+    window.addEventListener('mouseup', handlePointerUp);
+    radarZone.addEventListener('touchstart', handlePointerDown);
+    window.addEventListener('touchmove', handlePointerMove);
+    window.addEventListener('touchend', handlePointerUp);
+
+    function playSound(freq, duration, type="sine", vol=0.02) {
+        if (!audioCtx) return;
+        let osc = audioCtx.createOscillator(); let gain = audioCtx.createGain();
+        osc.type = type; osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+        osc.start(); osc.stop(audioCtx.currentTime + duration);
+    }
+
+    function playSirenAudio(durationSeconds) {
+        if (!audioCtx) return;
+        let osc = audioCtx.createOscillator();
+        let gainNode = audioCtx.createGain();
+        let filter = audioCtx.createBiquadFilter();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(280, audioCtx.currentTime);
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(700, audioCtx.currentTime); 
+        osc.connect(filter);
+        filter.connect(gainNode);
+        
+        // Підключаємо сирену до тактичного регулятора гучності
+        gainNode.connect(masterSirenGain); 
+        
+        let now = audioCtx.currentTime;
+        gainNode.gain.setValueAtTime(0, now);
+        gainNode.gain.linearRampToValueAtTime(0.04, now + 0.6); 
+        for (let i = 0; i < durationSeconds; i += 3) {
+            osc.frequency.linearRampToValueAtTime(440, now + i + 1.2); 
+            osc.frequency.linearRampToValueAtTime(280, now + i + 3.0); 
+        }
+        gainNode.gain.setValueAtTime(0.04, now + durationSeconds - 0.5);
+        gainNode.gain.linearRampToValueAtTime(0.0001, now + durationSeconds); 
+        osc.start(now);
+        osc.stop(now + durationSeconds);
+    }
+
+    const alertBox = document.getElementById('monitoring-alert');
+    const alertText = document.getElementById('alert-text');
+
+    function triggerAlert(text, isRed = false, duration = 4000) {
+        alertText.innerText = text; alertBox.style.display = 'block';
+        if (isRed) { alertBox.classList.add('red-alert'); playSound(140, 0.5, "sawtooth", 0.04); } 
+        else { alertBox.classList.remove('red-alert'); playSound(550, 0.15, "sine", 0.02); }
+        setTimeout(() => { alertBox.style.display = 'none'; }, duration);
+    }
+
+    const actionBtn = document.getElementById('action-btn');
+    const lockBar = document.getElementById('lock-progress-bar');
+    const actionText = document.getElementById('action-text');
+
+    function selectWeapon(wpnKey) {
+        state.selectedWeapon = wpnKey;
+        document.querySelectorAll('.weapon-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(`wpn-${wpnKey}`).classList.add('active');
+        resetLock(); playSound(400, 0.05);
+    }
+
+    function selectTarget(id) { state.selectedThreatId = id; resetLock(); playSound(600, 0.04, "triangle"); updateUI(); }
+
+    function resetLock() {
+        state.lockProgress = 0; state.isLocking = false; state.isLocked = false;
+        lockBar.style.width = '0%'; actionBtn.classList.remove('ready-to-fire');
+        actionText.innerText = state.selectedThreatId ? "УТРИМУЙТЕ ДЛЯ ЗАХОПЛЕННЯ СУО" : "ОБЕРІТЬ ЦІЛЬ ЗІ СТРІЧКИ";
+    }
+
+    let lockIntervalId = null;
+    actionBtn.addEventListener('pointerdown', () => {
+        if (!state.selectedThreatId || state.isLocked) return;
+        if (state.budget < WEAPONS[state.selectedWeapon].cost) {
+            actionText.innerText = "НЕДОСТАТНЬО БЮДЖЕТУ"; playSound(100, 0.3, "sawtooth", 0.05); return;
+        }
+        state.isLocking = true; const weaponData = WEAPONS[state.selectedWeapon]; const startTime = performance.now();
+        lockIntervalId = setInterval(() => {
+            if (!state.isLocking) { clearInterval(lockIntervalId); return; }
+            let elapsed = performance.now() - startTime;
+            state.lockProgress = Math.min((elapsed / weaponData.lockTime) * 100, 100);
+            lockBar.style.width = `calc(${state.lockProgress}% - 70px)`;
+            if (state.lockProgress % 25 < 5) playSound(750, 0.02, "sine", 0.02);
+            if (state.lockProgress >= 100) {
+                state.isLocked = true; state.isLocking = false; clearInterval(lockIntervalId);
+                actionBtn.classList.add('ready-to-fire'); actionText.innerText = "ПУСК ДОЗВОЛЕНО [ВОГОНЬ]"; playSound(900, 0.15, "sine", 0.04);
+            }
+        }, 20);
+    });
+    window.addEventListener('pointerup', () => { if (state.isLocking && !state.isLocked) resetLock(); });
+
+    actionBtn.addEventListener('click', () => {
+        if (!state.isLocked || !state.selectedThreatId) return;
+        const weaponData = WEAPONS[state.selectedWeapon];
+        const target = state.threats.find(t => t.id === state.selectedThreatId);
+        if (target && state.budget >= weaponData.cost) {
+            state.budget -= weaponData.cost;
+            state.missiles.push({
+                x: state.basePosition.x, y: state.basePosition.y,
+                targetId: target.id, targetX: target.x, targetY: target.y,
+                speed: 550, color: weaponData.color, chance: weaponData.hitChance
+            });
+            playSound(220, 0.4, "triangle", 0.05); resetLock(); updateUI();
+        }
+    });
+
+    function spawnEnemy(type) {
+        const config = THREAT_TYPES[type];
+        const aliveCities = CITIES.filter(c => c.active && !c.occupied);
+        if (aliveCities.length === 0) return;
+        const targetCity = aliveCities[Math.floor(Math.random() * aliveCities.length)];
+
+        let spawnX, spawnY;
+        if (Math.random() > 0.5) {
+            spawnX = Math.random() > 0.5 ? state.worldSize.width + 100 : -100;
+            spawnY = Math.random() * state.worldSize.height;
+        } else {
+            spawnX = Math.random() * state.worldSize.width;
+            spawnY = Math.random() > 0.5 ? state.worldSize.height + 100 : -100;
+        }
+
+        const cityWorldX = targetCity.x * state.worldSize.width;
+        const cityWorldY = targetCity.y * state.worldSize.height;
+
+        let dx = cityWorldX - spawnX;
+        let dy = cityWorldY - spawnY;
+        let angle = Math.atan2(dy, dx) + Math.PI / 2;
+
+        state.threats.push({
+            id: Math.floor(1000 + Math.random() * 9000).toString(), type: type,
+            x: spawnX, y: spawnY, startX: spawnX, startY: spawnY,
+            targetCityName: targetCity.name, targetCityWorldX: cityWorldX, targetCityWorldY: cityWorldY,
+            progress: 0, speed: config.speed, name: config.name, color: config.color, sizeScale: config.size, code: config.code, trail: [],
+            angle: angle 
+        });
+        updateTargetRibbonUI();
+    }
+
+    function spawnExplosion(worldX, worldY, color) {
+        for (let i = 0; i < 15; i++) {
+            state.particles.push({
+                x: worldX, y: worldY, vx: (Math.random() - 0.5) * 180, vy: (Math.random() - 0.5) * 180, alpha: 1, color: color
+            });
+        }
+        playSound(70, 0.25, "sawtooth", 0.05);
+    }
+
+    function handleGlobalDirector(time) {
+        let elapsed = time - state.lastEventTime;
+        if (state.nextEventType === 'MIXED_ATTACK') {
+            if (elapsed > 2000 && state.eventStage === 0) {
+                triggerAlert("⚠️ ПОВІТРЯНА ТРИВОГА: Фіксація малорозмірних цілей з півдня.", false);
+                state.eventStage = 1;
+            }
+            if (elapsed > 4000 && state.eventStage === 1) {
+                spawnEnemy('SHAHED');
+                setTimeout(() => spawnEnemy('SHAHED'), 5000);
+                state.eventStage = 2;
+            }
+            if (elapsed > 18000 && state.eventStage === 2) {
+                triggerAlert("🚀 ПОПЕРЕДЖЕННЯ: Зафіксовано рух крилатої ракети!", true);
+                spawnEnemy('CRUISE');
+                state.eventStage = 3;
+            }
+            if (elapsed > 35000 && state.eventStage === 3) {
+                triggerAlert("⚡ УВАГА: Загроза балістики зі Сходу!", true);
+                spawnEnemy('BALLISTIC');
+                state.eventStage = 0; state.lastEventTime = time;
+            }
+        }
+    }
+
+    function update(time) {
+        let now = performance.now();
+        let dt = (now - state.lastFrameTime) / 1000;
+        state.lastFrameTime = now;
+        if (dt > 0.1) dt = 0.1;
+
+        handleGlobalDirector(time);
+        state.sweepAngle += state.sweepSpeed * dt;
+        if (state.sweepAngle > 2 * Math.PI) state.sweepAngle = Math.PI;
+
+        const banner = document.getElementById('air-raid-banner');
+        if (!state.airRaidActive && state.threats.length > 0) {
+            state.airRaidActive = true;
+            banner.style.display = 'block';
+            banner.innerText = '🚨 ПОВІТРЯНА ТРИВОГА! 🚨';
+            banner.style.background = 'rgba(210, 20, 20, 0.85)';
+            playSirenAudio(9); 
+        } else if (state.airRaidActive && state.threats.length === 0) {
+            state.airRaidActive = false;
+            banner.innerText = '🟢 ВІДБІЙ ПОВІТРЯНОЇ ТРИВОГИ 🟢';
+            banner.style.background = 'rgba(15, 160, 45, 0.85)';
+            playSound(520, 0.22, "sine", 0.04);
+            setTimeout(() => playSound(680, 0.25, "sine", 0.04), 180);
+            setTimeout(() => {
+                if (!state.airRaidActive) banner.style.display = 'none';
+            }, 5000);
+        }
+
+        for (let i = state.threats.length - 1; i >= 0; i--) {
+            let t = state.threats[i]; 
+            t.progress += t.speed * dt;
+
+            if (Math.random() > 0.5) t.trail.push({x: t.x, y: t.y});
+            if (t.trail.length > 6) t.trail.shift();
+
+            t.x = t.startX + (t.targetCityWorldX - t.startX) * t.progress;
+            t.y = t.startY + (t.targetCityWorldY - t.startY) * t.progress;
+
+            if (t.progress >= 1.0) {
+                document.getElementById('terminal-container').classList.add('flash-red');
+                setTimeout(() => document.getElementById('terminal-container').classList.remove('flash-red'), 150);
+                const city = CITIES.find(c => c.name === t.targetCityName);
+                if (city) { city.hp = Math.max(0, city.hp - 25); if (city.hp <= 0) city.active = false; }
+                state.budget = Math.max(0, state.budget - 150);
+                if (state.selectedThreatId === t.id) state.selectedThreatId = null;
+                spawnExplosion(t.x, t.y, '#ff0000'); state.threats.splice(i, 1);
+                resetLock(); updateUI(); updateTargetRibbonUI();
+            }
+        }
+
+        for (let i = state.missiles.length - 1; i >= 0; i--) {
+            let m = state.missiles[i]; let target = state.threats.find(t => t.id === m.targetId);
+            if (target) { m.targetX = target.x; m.targetY = target.y; }
+            let dx = m.targetX - m.x; let dy = m.targetY - m.y; let dist = Math.sqrt(dx*dx + dy*dy);
+            if (dist < 8) {
+                if (target) {
+                    if (Math.random() <= m.chance) {
+                        spawnExplosion(target.x, target.y, target.color); state.score++;
+                        state.budget += Math.floor(THREAT_TYPES[target.type].reward);
+                        state.threats = state.threats.filter(t => t.id !== target.id);
+                        if (state.selectedThreatId === target.id) state.selectedThreatId = null;
+                    } else { spawnExplosion(m.x, m.y, '#555555'); }
+                }
+                state.missiles.splice(i, 1); updateUI(); updateTargetRibbonUI(); continue;
+            }
+            m.x += (dx / dist) * m.speed * dt; m.y += (dy / dist) * m.speed * dt;
+        }
+
+        state.particles.forEach((p, idx) => { 
+            p.x += p.vx * dt; p.y += p.vy * dt; p.alpha -= 1.2 * dt; 
+            if (p.alpha <= 0) state.particles.splice(idx, 1); 
+        });
+
+        renderTacticalMap(); updateTelemetry(); requestAnimationFrame(update);
+    }
+
+    function renderTacticalMap() {
+        ctx.fillStyle = '#060a07'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        const toScreen = (wx, wy) => ({ x: wx - state.camera.x, y: wy - state.camera.y });
+        const baseScreen = toScreen(state.basePosition.x, state.basePosition.y);
+
+        ctx.strokeStyle = 'rgba(45, 200, 45, 0.04)'; ctx.lineWidth = 1;
+        for (let r = 120; r < state.worldSize.height; r += 120) {
+            ctx.beginPath(); ctx.arc(baseScreen.x, baseScreen.y, r, Math.PI, 2 * Math.PI); ctx.stroke();
+        }
+
+        ctx.strokeStyle = 'rgba(77, 253, 77, 0.23)'; ctx.lineWidth = 2; ctx.beginPath();
+        UA_BORDER.forEach((pt, idx) => {
+            const screen = toScreen(pt.x * state.worldSize.width, pt.y * state.worldSize.height);
+            if (idx === 0) ctx.moveTo(screen.x, screen.y); else ctx.lineTo(screen.x, screen.y);
+        });
+        ctx.closePath(); ctx.stroke();
+
+        ctx.strokeStyle = WEAPONS[state.selectedWeapon].color + "30"; ctx.setLineDash([5, 5]); ctx.beginPath();
+        ctx.arc(baseScreen.x, baseScreen.y, WEAPONS[state.selectedWeapon].r, Math.PI, 2 * Math.PI); ctx.stroke(); ctx.setLineDash([]);
+
+        CITIES.forEach(city => {
+            const screen = toScreen(city.x * state.worldSize.width, city.y * state.worldSize.height);
+            if (screen.x < -40 || screen.x > canvas.width + 40 || screen.y < -40 || screen.y > canvas.height + 40) return;
+
+            if (city.occupied) {
+                ctx.strokeStyle = '#551111'; ctx.fillStyle = 'rgba(80, 15, 15, 0.15)';
+                ctx.beginPath(); ctx.arc(screen.x, screen.y, 7, 0, Math.PI * 2); ctx.stroke(); ctx.fill();
+                ctx.fillStyle = '#774444'; ctx.font = '8px Share Tech Mono';
+                ctx.fillText(`${city.name} [ОКУП.]`, screen.x + 10, screen.y + 3);
+            } else {
+                ctx.strokeStyle = city.active ? '#4dfd4d' : '#442222';
+                ctx.fillStyle = city.active ? 'rgba(77, 253, 77, 0.03)' : 'transparent';
+                ctx.beginPath(); ctx.arc(screen.x, screen.y, 9, 0, Math.PI * 2); ctx.stroke(); ctx.fill();
+                ctx.fillStyle = city.active ? '#ffffff' : '#555555'; ctx.font = '9px Share Tech Mono';
+                ctx.fillText(`${city.name} [${city.hp}%]`, screen.x + 13, screen.y + 3);
+            }
+        });
+
+        state.threats.forEach(t => {
+            const screen = toScreen(t.x, t.y);
+            t.trail.forEach((pos, idx) => {
+                const trS = toScreen(pos.x, pos.y);
+                ctx.fillStyle = t.color; ctx.globalAlpha = (idx + 1) / t.trail.length * 0.18;
+                ctx.fillRect(trS.x - 2, trS.y - 2, 4, 4);
+            });
+            ctx.globalAlpha = 1.0;
+            if (screen.x < -25 || screen.x > canvas.width + 25 || screen.y < -25 || screen.y > canvas.height + 25) return;
+
+            ctx.save();
+            ctx.translate(screen.x, screen.y);
+            ctx.rotate(t.angle);
+            ctx.scale(t.sizeScale, t.sizeScale);
+
+            ctx.shadowBlur = 8;
+            ctx.shadowColor = t.color;
+            ctx.strokeStyle = t.color;
+            ctx.lineWidth = 1.8 / t.sizeScale;
+            
+            let pathToDraw = PATH_SHAHED;
+            if (t.type === 'CRUISE') pathToDraw = PATH_CRUISE;
+            else if (t.type === 'BALLISTIC') pathToDraw = PATH_BALLISTIC;
+
+            ctx.stroke(pathToDraw);
+            ctx.restore(); 
+
+            ctx.shadowBlur = 0; 
+            ctx.fillStyle = '#ffffff'; ctx.font = '9px Share Tech Mono'; ctx.fillText(`${t.code}-${t.id}`, screen.x + 10, screen.y - 12);
+
+            if (t.id === state.selectedThreatId) {
+                ctx.strokeStyle = '#33ff33'; ctx.lineWidth = 1; let b = 15;
+                ctx.strokeRect(screen.x - b, screen.y - b, b * 2, b * 2);
+                ctx.strokeStyle = 'rgba(51, 255, 51, 0.08)'; ctx.beginPath(); ctx.moveTo(baseScreen.x, baseScreen.y); ctx.lineTo(screen.x, screen.y); ctx.stroke();
+            }
+        });
+
+        state.missiles.forEach(m => {
+            const screen = toScreen(m.x, m.y);
+            ctx.strokeStyle = m.color; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(screen.x, screen.y, 2, 0, Math.PI * 2); ctx.stroke();
+        });
+
+        ctx.save();
+        ctx.shadowBlur = 12;
+        state.particles.forEach(p => {
+            ctx.shadowColor = p.color;
+            const screen = toScreen(p.x, p.y); ctx.fillStyle = p.color; ctx.globalAlpha = p.alpha; ctx.fillRect(screen.x, screen.y, 2, 2);
+        });
+        ctx.restore();
+        ctx.globalAlpha = 1.0;
+    }
+
+    function updateUI() {
+        document.getElementById('ui-budget').innerText = `СИС_БЮДЖЕТ: $${state.budget}`;
+        document.getElementById('ui-score').innerText = `ЗБИТО: ${state.score}`;
+    }
+
+    function updateTelemetry() {
+        const typeEl = document.getElementById('tel-type'); const vectorEl = document.getElementById('tel-vector');
+        const etaEl = document.getElementById('tel-eta'); const statusEl = document.getElementById('tel-status');
+
+        if (!state.selectedThreatId) {
+            typeEl.style.color = '#ff3333'; typeEl.innerHTML = `НЕМАЄ ЗВ'ЯЗКУ`;
+            vectorEl.innerText = "-- / --"; etaEl.innerText = "-- | -- | --";
+            statusEl.style.color = '#33ff33'; statusEl.innerText = `РЕЖИМ_ОЧІКУВАННЯ`; return;
+        }
+        const target = state.threats.find(t => t.id === state.selectedThreatId);
+        if (!target) { state.selectedThreatId = null; resetLock(); return; }
+
+        let dx = target.targetCityWorldX - target.x; let dy = target.targetCityWorldY - target.y;
+        let dist = Math.floor(Math.sqrt(dx*dx + dy*dy) * 0.5);
+        let eta = ((1.0 - target.progress) / target.speed);
+        let azimuth = Math.floor((Math.atan2(target.y - state.basePosition.y, target.x - state.basePosition.x) * 180 / Math.PI + 360) % 360);
+
+        typeEl.style.color = '#4dfd4d'; typeEl.innerHTML = `${target.name} [T-${target.id}]`;
+        vectorEl.innerText = `НАПРЯМОК: ${target.targetCityName} | АЗИМУТ: ${azimuth}°`;
+        etaEl.innerText = `ДИСТАНЦІЯ: ${dist}км | ЧАС ДО УДАРУ: ${eta.toFixed(1)}с`;
+        
+        if (state.isLocked) { statusEl.innerText = `ЦІЛЬ ФІКСОВАНО СУО // ГОТОВІ ДО ПУСКУ`; statusEl.style.color = '#ff3333'; } 
+        else if (state.isLocking) { statusEl.innerText = `ОБЧИСЛЕННЯ БАЛІСТИКИ: ${Math.floor(state.lockProgress)}%`; statusEl.style.color = '#ffaa00'; } 
+        else { statusEl.innerText = `ЦІЛЬ НА СУПРОВОДІ // Ефективність: ${WEAPONS[state.selectedWeapon].pkStr}`; statusEl.style.color = '#33ff33'; }
+    }
+
+    function updateTargetRibbonUI() {
+        const ribbon = document.getElementById('target-ribbon'); ribbon.innerHTML = '';
+        if (state.threats.length === 0) {
+            ribbon.innerHTML = '<div style="font-size:10px; color:#44554b; width:100%; text-align:center; padding-top:14px;">НЕБО ЧИСТЕ</div>'; return;
+        }
+        state.threats.forEach(t => {
+            const card = document.createElement('div'); card.className = `target-card ${t.id === state.selectedThreatId ? 'selected' : ''}`;
+            if (t.progress > 0.75) card.classList.add('danger');
+            card.innerHTML = `<strong style="color:${t.color}">ТРЕК T-${t.id}</strong><span style="font-size:8px; color:#85948c; margin-top:2px;">↳ ${t.targetCityName}</span>`;
+            card.addEventListener('click', () => selectTarget(t.id)); ribbon.appendChild(card);
+        });
+    }
+
+    requestAnimationFrame(update);
+</script>
+</body>
+</html>
